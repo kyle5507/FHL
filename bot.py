@@ -2,15 +2,13 @@ import asyncio
 import os
 import discord
 import requests
-import pymongo
-from discord import client
 
-from pymongo import MongoClient
-from discord.ext import commands, tasks
+from discord.ext import commands
 from dotenv import load_dotenv
-from player import Player
+from pymongo import MongoClient
 
 from helper import extract_element_from_json
+from player import Player
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
