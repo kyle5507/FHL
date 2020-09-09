@@ -1,7 +1,11 @@
+import asyncio
 import os
 import discord
 import requests
+import pymongo
+from discord import client
 
+from pymongo import MongoClient
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from player import Player
@@ -10,14 +14,19 @@ from helper import extract_element_from_json
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
+GUILD = os.getenv('DISCORD_GUILD')
 HUB = os.getenv('FACEIT_HUB')
 FACEITAPI = os.getenv('FACEIT_KEY')
 SEASON = os.getenv("SEASON")
+MONGODB = os.getenv("MONGO")
 mapname = ""
 losers = ""
 winners = ""
 players = []
-message = discord.Message
+
+cluster = MongoClient(MONGODB)
+db = cluster["FHL"]
+collection = db["FHL"]
 
 bot = commands.Bot(command_prefix="!")
 
@@ -25,6 +34,7 @@ bot = commands.Bot(command_prefix="!")
 @bot.event
 async def on_ready():
     print("Bot Online!")
+    bot.loop.create_task(my_task())
     await bot.change_presence(activity=discord.Game(name="Kybrid 10 mans"))
 
 
@@ -43,7 +53,35 @@ async def leaderboard(ctx):
     for player in players:
         msg += (repr(player))
         msg += "\n\n"
-    await ctx.send(msg)
+    saveMsg("leaderboard", await ctx.send(msg))
+
+
+def saveMsg(type, msg):
+    post = {"type": type,
+            "messageID": msg.id,
+            "channelID": msg.channel.id}
+    if collection.find_one({"type": type}):
+        collection.delete_one({"type": type})
+    collection.insert_one(post)
+
+
+async def my_task():
+    while True:
+        print("Updating leaderboard..")
+        post = collection.find_one({"type": "leaderboard"})
+        cid = post["channelID"]
+        mid = post["messageID"]
+
+        channel = bot.get_channel(cid)
+        message = await channel.fetch_message(mid)
+
+        updateleaderboard()
+        msg = "Leaderboard:\n"
+        for player in players:
+            msg += (repr(player))
+            msg += "\n\n"
+        await message.edit(content=msg)
+        await asyncio.sleep(300)
 
 
 def updateleaderboard():
@@ -53,7 +91,6 @@ def updateleaderboard():
         headers={'Accept': 'application/json',
                  'Authorization': f"Bearer {FACEITAPI}"})
     jsonresp = response.json()
-    temp = []
     nick = extract_element_from_json(jsonresp, ["items", "player", "nickname"])
     skill = extract_element_from_json(jsonresp, ["items", "player", "skill_level"])
     won = extract_element_from_json(jsonresp, ["items", "won"])
@@ -61,9 +98,9 @@ def updateleaderboard():
     pos = extract_element_from_json(jsonresp, ["items", "position"])
     points = extract_element_from_json(jsonresp, ["items", "points"])
     streak = extract_element_from_json(jsonresp, ["items", "current_streak"])
+    players.clear()
     for i in range(len(nick)):
-        temp.append(Player(nick[i], skill[i], won[i], loss[i], streak[i], pos[i], points[i]))
-    players = temp;
+        players.append(Player(nick[i], skill[i], won[i], loss[i], streak[i], pos[i], points[i]))
 
 
 def updaterecentmatch():
@@ -87,15 +124,3 @@ def cleanMarkup(str):
 
 
 bot.run(TOKEN)
-
-
-class MyCog(commands.Cog):
-    def __init__(self):
-        self.matchcount.start()
-
-    def cog_unload(self):
-        self.printer.cancel()
-
-    @tasks.loop(minutes=15)
-    async def printer(self):
-        print(self.index)
