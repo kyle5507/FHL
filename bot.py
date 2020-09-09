@@ -11,12 +11,14 @@ from helper import extract_element_from_json
 from player import Player
 
 load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN')
-GUILD = os.getenv('DISCORD_GUILD')
-HUB = os.getenv('FACEIT_HUB')
-FACEITAPI = os.getenv('FACEIT_KEY')
-SEASON = os.getenv("SEASON")
-MONGODB = os.getenv("MONGO")
+TOKEN = os.environ["DISCORD_TOKEN"]
+GUILD = os.environ["DISCORD_GUILD"]
+HUB = os.environ["FACEIT_HUB"]
+FACEITAPI = os.environ["FACEIT_KEY"]
+SEASON = os.environ["SEASON"]
+MONGODB = os.environ["MONGO"]
+
+
 mapname = ""
 losers = ""
 winners = ""
